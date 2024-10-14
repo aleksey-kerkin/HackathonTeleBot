@@ -1,39 +1,57 @@
 import sqlite3
 
+from config import DB_NAME, TABLE_NAME
 
-def init_db():
-    conn = sqlite3.connect("vacation_planner.db")
+
+def create_table():
+    """Создает таблицу в базе данных для хранения информации о пользователях."""
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS vacations (
-            user_id INTEGER PRIMARY KEY,
-            destination TEXT,
+    cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER UNIQUE,
+            start_date DATE,
+            end_date DATE,
+            is_approved BOOLEAN DEFAULT FALSE,
+            places_to_visit TEXT,
             tasks TEXT,
-            days_left INTEGER
-            );
-        """)
+            tickets_booked BOOLEAN DEFAULT FALSE
+        )
+    """)
     conn.commit()
     conn.close()
 
 
-def save_vacation_plan(user_id, destination, tasks, days_left):
-    conn = sqlite3.connect("vacation_planner.db")
+def save_vacation(chat_id, vacation):
+    """Сохраняет информацию об отпуске в базу данных."""
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute(
-        """
-        INSERT OR REPLACE INTO vacations (user_id, destination, tasks, days_left)
-        VALUES (?, ?, ?, ?);
-        """,
-        (user_id, destination, tasks, days_left),
+        f"""
+        INSERT OR REPLACE INTO {TABLE_NAME}
+        (chat_id, start_date, end_date, is_approved, places_to_visit, tasks, tickets_booked)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """,  # noqa: E501
+        (
+            chat_id,
+            vacation["start_date"],
+            vacation["end_date"],
+            vacation["is_approved"],
+            vacation.get("places_to_visit", ""),
+            vacation.get("tasks", ""),
+            vacation["tickets_booked"],
+        ),
     )
     conn.commit()
     conn.close()
 
 
-def get_vacation_plan(user_id):
-    conn = sqlite3.connect("vacation_planner.db")
+def get_vacations(chat_id):
+    """Получает информацию об отпусках пользователя из базы данных."""
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM vacations WHERE user_id = ?;", (user_id,))
+    cursor.execute(f"SELECT * FROM {TABLE_NAME} WHERE chat_id = ?", (chat_id,))
     result = cursor.fetchone()
     conn.close()
-    return result
+    return result if result else None
