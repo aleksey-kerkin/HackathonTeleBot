@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     await update.message.reply_html(
-        rf"Привет {user.mention_html()}! Этот бот создан для планирования отпусков. Что хочешь сделать?",  # noqa: E501
+        rf"Привет {user.mention_html()}! Этот бот создан для планирования отпусков. Что хочешь сделать?",
     )
     keyboard = [
         [
@@ -46,51 +46,44 @@ async def plan_vacation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.callback_query.edit_message_text(
         "Введите дату начала отпуска (YYYY-MM-DD):",
         reply_markup=InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "Закрепить", callback_data=f"confirm_plan_{chat_id}"
-                    ),
-                    InlineKeyboardButton(
-                        "Отмена", callback_data=f"cancel_plan_{chat_id}"
-                    ),
-                ]
-            ]
+            [[InlineKeyboardButton("Отмена", callback_data=f"cancel_plan_{chat_id}")]]
         ),
     )
+    context.user_data["waiting_for_date"] = True
 
 
 async def confirm_plan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_chat.id
-    query = update.callback_query
+    message_text = update.message.text.strip()
 
-    message_text = query.message.text
-    start_date = message_text.strip()
+    if context.user_data.get("waiting_for_date"):
+        try:
+            start_date = datetime.strptime(message_text, "%Y-%m-%d")
+            end_date = start_date + timedelta(days=14)
+            end_date_str = end_date.strftime("%Y-%m-%d")
 
-    try:
-        start_date = datetime.strptime(start_date, "%Y-%m-%d")
-        end_date = start_date + timedelta(days=14)
-        end_date_str = end_date.strftime("%Y-%m-%d")
+            vacation_info = {
+                "start_date": start_date.strftime("%Y-%m-%d"),
+                "end_date": end_date_str,
+                "is_approved": False,
+                "tickets_booked": False,
+            }
 
-        vacation_info = {
-            "start_date": start_date.strftime("%Y-%m-%d"),
-            "end_date": end_date_str,
-            "is_approved": False,
-            "tickets_booked": False,
-        }
+            save_vacation(chat_id, vacation_info)
 
-        save_vacation(chat_id, vacation_info)
-
-        await query.answer()
-        await query.edit_message_text(
-            f"Отпуск запланирован:\n"
-            f"Начало: {start_date.strftime('%Y-%m-%d')}\n"
-            f"Конец: {end_date_str}"
-        )
-    except ValueError:
-        await query.answer()
-        await query.edit_message_text(
-            "Неверный формат даты. Пожалуйста, используйте формат YYYY-MM-DD."
+            await update.message.reply_text(
+                f"Отпуск запланирован:\n"
+                f"Начало: {start_date.strftime('%Y-%m-%d')}\n"
+                f"Конец: {end_date_str}"
+            )
+            context.user_data["waiting_for_date"] = False
+        except ValueError:
+            await update.message.reply_text(
+                "Неверный формат даты. Пожалуйста, используйте формат YYYY-MM-DD."
+            )
+    else:
+        await update.message.reply_text(
+            "Пожалуйста, сначала нажмите 'Запланировать отпуск'."
         )
 
 
@@ -104,6 +97,10 @@ async def view_planned(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             "end_date": existing_vacations[3],
         }
         vacation_text = f"{vacation_info['start_date']} - {vacation_info['end_date']}"
-        await update.message.reply_text(vacation_text)
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(vacation_text)
     else:
-        await update.message.reply_text("У вас нет запланированных отпусков.")
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(
+            "У вас нет запланированных отпусков."
+        )
