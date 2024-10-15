@@ -1,8 +1,6 @@
-import logging
-
-from telegram import Update
 from telegram.ext import (
     Application,
+    ApplicationBuilder,
     CallbackQueryHandler,
     CommandHandler,
     MessageHandler,
@@ -10,31 +8,26 @@ from telegram.ext import (
 )
 
 from config import TOKEN
-from vacation_planner import confirm_plan, plan_vacation, start, view_planned
+from database import create_table
+from handlers import error_handler, handle_callback, handle_text, plan, show, start
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-logger = logging.getLogger(__name__)
-
-
-def main() -> None:
-    """Start the bot."""
-    application = Application.builder().token(TOKEN).build()
-
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(
-        CallbackQueryHandler(plan_vacation, pattern=r"^plan_vacation$")
-    )
-    application.add_handler(
-        CallbackQueryHandler(view_planned, pattern=r"^get_vacations$")
-    )
-    application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, confirm_plan)
-    )
-
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
-
+create_table()
 
 if __name__ == "__main__":
-    main()
+    application = ApplicationBuilder().token(TOKEN).build()
+
+    start_handler = CommandHandler("start", start)
+    plan_handler = CallbackQueryHandler(plan, pattern="^plan$")
+    show_handler = CallbackQueryHandler(show, pattern="^show$")
+    callback_handler = CallbackQueryHandler(handle_callback)
+    text_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), handle_text)
+
+    application.add_handler(start_handler)
+    application.add_handler(plan_handler)
+    application.add_handler(show_handler)
+    application.add_handler(callback_handler)
+    application.add_handler(text_handler)
+
+    application.add_error_handler(error_handler)
+
+    application.run_polling()

@@ -4,7 +4,6 @@ from config import DB_NAME, TABLE_NAME
 
 
 def create_table():
-    """Создает таблицу в базе данных для хранения информации о пользователях."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute(f"""
@@ -24,7 +23,6 @@ def create_table():
 
 
 def save_vacation(chat_id, vacation):
-    """Сохраняет информацию об отпуске в базу данных."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute(
@@ -48,7 +46,6 @@ def save_vacation(chat_id, vacation):
 
 
 def get_vacations(chat_id):
-    """Получает информацию об отпусках пользователя из базы данных."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute(f"SELECT * FROM {TABLE_NAME} WHERE chat_id = ?", (chat_id,))
