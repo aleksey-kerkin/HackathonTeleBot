@@ -1,62 +1,36 @@
-import os
-import logging
-
-from dotenv import load_dotenv
-
-from telegram import ForceReply, Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
-
-load_dotenv()
-TOKEN = os.getenv('TOKEN')
-
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+from telegram.ext import (
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    CommandHandler,
+    MessageHandler,
+    filters,
 )
 
-logging.getLogger("httpx").setLevel(logging.WARNING)
-
-logger = logging.getLogger(__name__)
-
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("Для начала работы напишите команду /start.")
+from config import TOKEN
+from database import create_table
+from handlers import error_handler, handle_callback, handle_text, plan, show, start
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    await update.message.reply_html(
-        rf"Привет {user.mention_html()}! Этот создан чтобы запланировать твой будующий отуск! Давай начнем"
-    )
-    keyboard = [
-        [
-            InlineKeyboardButton("Запланировать даты отпуска", callback_data="1"),
-            InlineKeyboardButton("Запланировать важные дела", callback_data="2"),
-        ],
-        [InlineKeyboardButton("Запланировать поездку", callback_data="3")],
-    ]
+def main():
+    application = ApplicationBuilder().token(TOKEN).build()
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    start_handler = CommandHandler("start", start)
+    plan_handler = CallbackQueryHandler(plan, pattern="^plan$")
+    show_handler = CallbackQueryHandler(show, pattern="^show$")
+    callback_handler = CallbackQueryHandler(handle_callback)
+    text_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), handle_text)
 
-    await update.message.reply_text("Пожалуйста выберите действие:", reply_markup=reply_markup)
+    application.add_handler(start_handler)
+    application.add_handler(plan_handler)
+    application.add_handler(show_handler)
+    application.add_handler(callback_handler)
+    application.add_handler(text_handler)
 
+    application.add_error_handler(error_handler)
 
-async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-
-    await query.answer()
-
-    await query.edit_message_text(text=f"Selected option: {query.data}")
-
-
-def main() -> None:
-    application = Application.builder().token(TOKEN).build()
-
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CallbackQueryHandler(button))
-
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    application.run_polling()
 
 
 if __name__ == "__main__":
+    create_table()
     main()
