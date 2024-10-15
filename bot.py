@@ -1,5 +1,4 @@
 from telegram.ext import (
-    Application,
     ApplicationBuilder,
     CallbackQueryHandler,
     CommandHandler,
@@ -11,9 +10,8 @@ from config import TOKEN
 from database import create_table
 from handlers import error_handler, handle_callback, handle_text, plan, show, start
 
-create_table()
 
-if __name__ == "__main__":
+def main():
     application = ApplicationBuilder().token(TOKEN).build()
 
     start_handler = CommandHandler("start", start)
@@ -31,3 +29,8 @@ if __name__ == "__main__":
     application.add_error_handler(error_handler)
 
     application.run_polling()
+
+
+if __name__ == "__main__":
+    create_table()
+    main()

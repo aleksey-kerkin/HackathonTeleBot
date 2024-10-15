@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
@@ -66,18 +68,42 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    chat_id = update.message.chat_id
 
     if context.user_data.get("step") == "start_date":
-        context.user_data["vacation"]["start_date"] = text
-        await update.message.reply_text(
-            "Когда заканчивается отпуск? (в формате ГГГГ-ММ-ДД)"
-        )
-        context.user_data["step"] = "end_date"
+        try:
+            start_date = datetime.strptime(text, "%Y-%m-%d")
+            if start_date < datetime.today():
+                await update.message.reply_text(
+                    "Дата начала отпуска не может быть раньше сегодняшнего дня."
+                )
+                return
+            context.user_data["vacation"]["start_date"] = text
+            await update.message.reply_text(
+                "Когда заканчивается отпуск? (в формате ГГГГ-ММ-ДД)"
+            )
+            context.user_data["step"] = "end_date"
+        except ValueError:
+            await update.message.reply_text(
+                "Неверный формат даты. Используйте формат ГГГГ-ММ-ДД."
+            )
     elif context.user_data.get("step") == "end_date":
-        context.user_data["vacation"]["end_date"] = text
-        await update.message.reply_text("Куда планируешь поехать?")
-        context.user_data["step"] = "places_to_visit"
+        try:
+            end_date = datetime.strptime(text, "%Y-%m-%d")
+            start_date = datetime.strptime(
+                context.user_data["vacation"]["start_date"], "%Y-%m-%d"
+            )
+            if end_date <= start_date:
+                await update.message.reply_text(
+                    "Дата окончания отпуска не может быть раньше или равна дате начала."
+                )
+                return
+            context.user_data["vacation"]["end_date"] = text
+            await update.message.reply_text("Куда планируешь поехать?")
+            context.user_data["step"] = "places_to_visit"
+        except ValueError:
+            await update.message.reply_text(
+                "Неверный формат даты. Используйте формат ГГГГ-ММ-ДД."
+            )
     elif context.user_data.get("step") == "places_to_visit":
         context.user_data["vacation"]["places_to_visit"] = text
         await update.message.reply_text("Что ты хочешь сделать во время отпуска?")
@@ -103,8 +129,10 @@ async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = query.message.chat_id
     vacation = get_vacations(chat_id)
     if vacation:
+        end_date = datetime.strptime(vacation[3], "%Y-%m-%d")
+        days_left = (end_date - datetime.today()).days
         await query.edit_message_text(
-            f"Даты отпуска: {vacation[2]} - {vacation[3]}\n"
+            f"Даты отпуска: {vacation[2]} - {vacation[3]} (осталось {days_left} дней)\n"
             f"Места для посещения: {vacation[5]}\n"
             f"Задачи: {vacation[6]}\n"
             f"Билеты забронированы: {'Да' if vacation[7] else 'Нет'}"
