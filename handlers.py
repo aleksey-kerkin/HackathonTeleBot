@@ -128,14 +128,18 @@ async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     chat_id = query.message.chat_id
     vacation = get_vacations(chat_id)
+
     if vacation:
-        end_date = datetime.strptime(vacation[3], "%Y-%m-%d")
-        days_left = (end_date - datetime.today()).days
+        vacation_obj = vacation[0]
+        end_date = vacation_obj.end_date
+        today = datetime.now().date()
+        days_left = (end_date - today).days
+
         await query.edit_message_text(
-            f"Даты отпуска: {vacation[2]} - {vacation[3]} (осталось {days_left} дней)\n"
-            f"Места для посещения: {vacation[5]}\n"
-            f"Задачи: {vacation[6]}\n"
-            f"Билеты забронированы: {'Да' if vacation[7] else 'Нет'}"
+            f"Даты отпуска: {vacation_obj.start_date.strftime('%Y-%m-%d')} - {vacation_obj.end_date.strftime('%Y-%m-%d')} (осталось {days_left} дней)\n"
+            f"Места для посещения: {vacation_obj.places_to_visit}\n"
+            f"Задачи: {vacation_obj.tasks}\n"
+            f"Билеты забронированы: {'Да' if vacation_obj.tickets_booked else 'Нет'}"
         )
     else:
         await query.edit_message_text(
