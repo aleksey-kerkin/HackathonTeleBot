@@ -9,7 +9,7 @@ DB_NAME = os.environ.get('DATABASE_URL')
 engine = create_engine(DB_NAME)
 Base = declarative_base()
 Session = sessionmaker(bind=engine)
-
+Vacation.__table__.create(engine, checkfirst=True)
 
 def create_table():
     Base.metadata.create_all(engine)

@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from date import parse_date
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
@@ -45,7 +45,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if data == "yes":
             context.user_data["vacation"] = {"is_approved": True}
             await query.edit_message_text(
-                "Отлично! Когда начинается отпуск? (в формате ГГГГ-ММ-ДД)"
+                "Отлично! Когда начинается отпуск?"
             )
             context.user_data["step"] = "start_date"
         else:
@@ -71,15 +71,16 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if context.user_data.get("step") == "start_date":
         try:
-            start_date = datetime.strptime(text, "%Y-%m-%d")
+            start_date_str = parse_date(text)
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
             if start_date < datetime.today():
                 await update.message.reply_text(
                     "Дата начала отпуска не может быть раньше сегодняшнего дня."
                 )
                 return
-            context.user_data["vacation"]["start_date"] = text
+            context.user_data["vacation"]["start_date"] = start_date_str
             await update.message.reply_text(
-                "Когда заканчивается отпуск? (в формате ГГГГ-ММ-ДД)"
+                "Когда заканчивается отпуск?"
             )
             context.user_data["step"] = "end_date"
         except ValueError:
@@ -88,7 +89,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
     elif context.user_data.get("step") == "end_date":
         try:
-            end_date = datetime.strptime(text, "%Y-%m-%d")
+            end_date_str = parse_date(text)
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
             start_date = datetime.strptime(
                 context.user_data["vacation"]["start_date"], "%Y-%m-%d"
             )
